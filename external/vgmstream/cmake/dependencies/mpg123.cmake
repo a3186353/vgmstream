@@ -38,6 +38,7 @@ if(NOT WIN32 AND USE_MPEG)
 			endif()
 			
 			set(MPEG_CC "${CMAKE_C_COMPILER}")
+			set(MPEG_CFLAGS "")
 			if(ANDROID)
 				set(ANDROID_API "")
 				if(DEFINED CMAKE_ANDROID_API)
@@ -48,20 +49,24 @@ if(NOT WIN32 AND USE_MPEG)
 					set(ANDROID_API "21")
 				endif()
 
-				if(DEFINED CMAKE_C_COMPILER_TARGET AND NOT "${CMAKE_C_COMPILER_TARGET}" STREQUAL "")
-					set(MPEG_CC "${CMAKE_C_COMPILER} --target=${CMAKE_C_COMPILER_TARGET}")
-				elseif(CMAKE_ANDROID_ARCH_ABI STREQUAL "armeabi-v7a")
-					set(MPEG_CC "${CMAKE_C_COMPILER} --target=armv7a-linux-androideabi${ANDROID_API}")
+				if(CMAKE_ANDROID_ARCH_ABI STREQUAL "armeabi-v7a")
+					set(MPEG_TARGET "armv7a-linux-androideabi")
 				elseif(CMAKE_ANDROID_ARCH_ABI STREQUAL "arm64-v8a")
-					set(MPEG_CC "${CMAKE_C_COMPILER} --target=aarch64-linux-android${ANDROID_API}")
+					set(MPEG_TARGET "aarch64-linux-android")
 				elseif(CMAKE_ANDROID_ARCH_ABI STREQUAL "x86")
-					set(MPEG_CC "${CMAKE_C_COMPILER} --target=i686-linux-android${ANDROID_API}")
+					set(MPEG_TARGET "i686-linux-android")
 				elseif(CMAKE_ANDROID_ARCH_ABI STREQUAL "x86_64")
-					set(MPEG_CC "${CMAKE_C_COMPILER} --target=x86_64-linux-android${ANDROID_API}")
+					set(MPEG_TARGET "x86_64-linux-android")
+				else()
+					set(MPEG_TARGET "")
 				endif()
 
-				if(DEFINED CMAKE_SYSROOT AND NOT "${CMAKE_SYSROOT}" STREQUAL "")
-					set(MPEG_CC "${MPEG_CC} --sysroot=${CMAKE_SYSROOT}")
+				if(NOT "${MPEG_TARGET}" STREQUAL "")
+					set(MPEG_CC "${CMAKE_C_COMPILER} --target=${MPEG_TARGET}${ANDROID_API}")
+					if(DEFINED CMAKE_SYSROOT AND NOT "${CMAKE_SYSROOT}" STREQUAL "")
+						set(MPEG_CC "${MPEG_CC} --sysroot=${CMAKE_SYSROOT}")
+					endif()
+					set(MPEG_CFLAGS "-fPIC")
 				endif()
 			endif()
 
@@ -72,6 +77,11 @@ if(NOT WIN32 AND USE_MPEG)
 				AR="${CMAKE_AR}"
 				RANLIB="${CMAKE_RANLIB}"
 			)
+			if(MPEG_CFLAGS)
+				list(APPEND MPEG_CONFIGURE
+					CFLAGS="${MPEG_CFLAGS}"
+				)
+			endif()
 			if(EMSCRIPTEN)
 				list(APPEND MPEG_CONFIGURE
 					--with-cpu=generic_fpu
