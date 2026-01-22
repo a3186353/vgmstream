@@ -112,7 +112,7 @@ static inline int clamp_pcm32(int64_t val) {
 #endif
 #define CONV_FLT_F16(x) (x * 32767.0f)
 #define CONV_FLT_S24(x) (clamp_pcm24(float_to_int(x * 8388607.0f)))
-#define CONV_FLT_S32(x) (clamp_pcm32(float_to_i64(x * 2147483647)))
+#define CONV_FLT_S32(x) (clamp_pcm32(float_to_i64(x * 2147483647.0f)))
 
 #define CONV_S24_S16(x) (x >> 8)
 #define CONV_S24_F16(x) (x >> 8)
