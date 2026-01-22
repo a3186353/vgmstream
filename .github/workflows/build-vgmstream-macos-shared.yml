@@ -20,8 +20,21 @@ jobs:
 
       - name: Configure
         run: |
+          BREW_PREFIX="$(brew --prefix)"
+          echo "brew prefix: ${BREW_PREFIX}"
+
+          pkg-config --version || true
+          pkg-config --modversion ogg || true
+          pkg-config --modversion vorbis || true
+          pkg-config --modversion vorbisfile || true
+
           cmake -S external/vgmstream -B build-vgmstream-macos \
             -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="${BREW_PREFIX}" \
+            -DMPG123_DIR="$(brew --prefix mpg123)" \
+            -DOGG_ROOT="$(brew --prefix libogg)" \
+            -DVORBIS_ROOT="$(brew --prefix libvorbis)" \
+            -DVORBISFILE_ROOT="$(brew --prefix libvorbis)" \
             -DUSE_VORBIS=ON \
             -DUSE_MPEG=ON \
             -DUSE_FFMPEG=OFF \
