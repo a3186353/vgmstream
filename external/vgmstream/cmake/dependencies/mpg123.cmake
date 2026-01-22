@@ -71,27 +71,26 @@ if(NOT WIN32 AND USE_MPEG)
 					if(EXISTS "${_VGM_CC_WRAPPER}")
 						set(MPEG_CC "${_VGM_CC_WRAPPER}")
 					else()
-						set(MPEG_CC "${CMAKE_C_COMPILER} --target=${MPEG_TARGET}${ANDROID_API}")
-					endif()
-					if(DEFINED CMAKE_SYSROOT AND NOT "${CMAKE_SYSROOT}" STREQUAL "")
-						set(MPEG_CC "${MPEG_CC} --sysroot=${CMAKE_SYSROOT}")
+						set(MPEG_CC "${CMAKE_C_COMPILER}")
 					endif()
 					set(MPEG_CFLAGS "-fPIC")
 				endif()
 			endif()
 
+			set(MPEG_ENV
+				"${CMAKE_COMMAND}" -E env
+				"CC=${MPEG_CC}"
+				"AR=${CMAKE_AR}"
+				"RANLIB=${CMAKE_RANLIB}"
+			)
+			if(MPEG_CFLAGS)
+				list(APPEND MPEG_ENV "CFLAGS=${MPEG_CFLAGS}")
+			endif()
+
 			set(MPEG_CONFIGURE
 				--enable-static
 				--disable-shared
-				CC="${MPEG_CC}"
-				AR="${CMAKE_AR}"
-				RANLIB="${CMAKE_RANLIB}"
 			)
-			if(MPEG_CFLAGS)
-				list(APPEND MPEG_CONFIGURE
-					CFLAGS="${MPEG_CFLAGS}"
-				)
-			endif()
 			if(EMSCRIPTEN)
 				list(APPEND MPEG_CONFIGURE
 					--with-cpu=generic_fpu
@@ -117,7 +116,7 @@ if(NOT WIN32 AND USE_MPEG)
 			
 			file(MAKE_DIRECTORY ${MPEG_BIN})
 			add_custom_target(MPEG_CONFIGURE
-				COMMAND "${MPEG_PATH}/configure" ${MPEG_CONFIGURE}
+				COMMAND ${MPEG_ENV} "${MPEG_PATH}/configure" ${MPEG_CONFIGURE}
 				DEPENDS ${MPEG_PATH}/configure
 				BYPRODUCTS ${MPEG_BIN}/Makefile
 				WORKING_DIRECTORY ${MPEG_BIN}

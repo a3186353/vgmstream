@@ -50,15 +50,16 @@ jobs:
 
       - name: Collect Artifacts
         run: |
-          mkdir -p artifacts/deps
-          cp -f build-vgmstream-macos/src/libvgmstream.dylib artifacts/
+          rm -rf artifacts
+          mkdir -p artifacts/lib/macos/deps
+          cp -f build-vgmstream-macos/src/libvgmstream.dylib artifacts/lib/macos/
 
-          cp "$(brew --prefix libvorbis)/lib/libvorbis.dylib" artifacts/deps/ || true
-          cp "$(brew --prefix libogg)/lib/libogg.dylib" artifacts/deps/ || true
-          cp "$(brew --prefix mpg123)/lib/libmpg123.dylib" artifacts/deps/ || true
+          cp "$(brew --prefix libvorbis)/lib/libvorbis.dylib" artifacts/lib/macos/deps/ || true
+          cp "$(brew --prefix libogg)/lib/libogg.dylib" artifacts/lib/macos/deps/ || true
+          cp "$(brew --prefix mpg123)/lib/libmpg123.dylib" artifacts/lib/macos/deps/ || true
 
           ls -la artifacts
-          ls -la artifacts/deps
+          ls -la artifacts/lib/macos/deps
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4

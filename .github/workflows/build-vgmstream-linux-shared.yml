@@ -65,7 +65,7 @@ jobs:
         if: matrix.arch == 'aarch64'
         run: |
           rm -rf artifacts
-          mkdir -p "artifacts/${{ matrix.arch }}/deps"
+          mkdir -p "artifacts/lib/linux/${{ matrix.arch }}/deps"
           docker run --rm --platform linux/arm64 \
             -v "${GITHUB_WORKSPACE}:/work" \
             ubuntu:24.04 \
@@ -73,7 +73,7 @@ jobs:
               export DEBIAN_FRONTEND=noninteractive; \
               for i in 1 2 3 4 5; do apt-get -o Acquire::Retries=3 update && break || (echo "apt-get update failed ($i)"; sleep 5); done; \
               apt-get -o Acquire::Retries=3 install -y --no-install-recommends build-essential cmake pkg-config libvorbis-dev libogg-dev libmpg123-dev ca-certificates; \
-              mkdir -p /work/artifacts/${{ matrix.arch }}/deps; \
+              mkdir -p /work/artifacts/lib/linux/${{ matrix.arch }}/deps; \
               rm -rf /tmp/build-vgmstream-linux-aarch64; \
               cmake -S /work/external/vgmstream -B /tmp/build-vgmstream-linux-aarch64 \
                 -DCMAKE_BUILD_TYPE=Release \
@@ -90,26 +90,27 @@ jobs:
                 -DBUILD_AUDACIOUS=OFF \
                 -DBUILD_SHARED_LIBS=ON; \
               cmake --build /tmp/build-vgmstream-linux-aarch64 -j2; \
-              cp -f /tmp/build-vgmstream-linux-aarch64/src/libvgmstream.so /work/artifacts/${{ matrix.arch }}/; \
-              cp -L /usr/lib/aarch64-linux-gnu/libogg.so* /work/artifacts/${{ matrix.arch }}/deps/ || true; \
-              cp -L /usr/lib/aarch64-linux-gnu/libvorbis.so* /work/artifacts/${{ matrix.arch }}/deps/ || true; \
-              cp -L /usr/lib/aarch64-linux-gnu/libvorbisfile.so* /work/artifacts/${{ matrix.arch }}/deps/ || true; \
-              cp -L /usr/lib/aarch64-linux-gnu/libmpg123.so* /work/artifacts/${{ matrix.arch }}/deps/ || true;'
+              cp -f /tmp/build-vgmstream-linux-aarch64/src/libvgmstream.so /work/artifacts/lib/linux/${{ matrix.arch }}/; \
+              cp -L /usr/lib/aarch64-linux-gnu/libogg.so* /work/artifacts/lib/linux/${{ matrix.arch }}/deps/ || true; \
+              cp -L /usr/lib/aarch64-linux-gnu/libvorbis.so* /work/artifacts/lib/linux/${{ matrix.arch }}/deps/ || true; \
+              cp -L /usr/lib/aarch64-linux-gnu/libvorbisfile.so* /work/artifacts/lib/linux/${{ matrix.arch }}/deps/ || true; \
+              cp -L /usr/lib/aarch64-linux-gnu/libmpg123.so* /work/artifacts/lib/linux/${{ matrix.arch }}/deps/ || true;'
 
       - name: Collect Artifacts
         if: matrix.arch == 'x86_64'
         run: |
-          mkdir -p "artifacts/${{ matrix.arch }}/deps"
+          rm -rf artifacts
+          mkdir -p "artifacts/lib/linux/${{ matrix.arch }}/deps"
           BUILD_DIR="build-vgmstream-linux-${{ matrix.arch }}"
-          cp -f "${BUILD_DIR}/src/libvgmstream.so" "artifacts/${{ matrix.arch }}/"
+          cp -f "${BUILD_DIR}/src/libvgmstream.so" "artifacts/lib/linux/${{ matrix.arch }}/"
 
-          cp -L /usr/lib/x86_64-linux-gnu/libogg.so* "artifacts/${{ matrix.arch }}/deps/" || true
-          cp -L /usr/lib/x86_64-linux-gnu/libvorbis.so* "artifacts/${{ matrix.arch }}/deps/" || true
-          cp -L /usr/lib/x86_64-linux-gnu/libvorbisfile.so* "artifacts/${{ matrix.arch }}/deps/" || true
-          cp -L /usr/lib/x86_64-linux-gnu/libmpg123.so* "artifacts/${{ matrix.arch }}/deps/" || true
+          cp -L /usr/lib/x86_64-linux-gnu/libogg.so* "artifacts/lib/linux/${{ matrix.arch }}/deps/" || true
+          cp -L /usr/lib/x86_64-linux-gnu/libvorbis.so* "artifacts/lib/linux/${{ matrix.arch }}/deps/" || true
+          cp -L /usr/lib/x86_64-linux-gnu/libvorbisfile.so* "artifacts/lib/linux/${{ matrix.arch }}/deps/" || true
+          cp -L /usr/lib/x86_64-linux-gnu/libmpg123.so* "artifacts/lib/linux/${{ matrix.arch }}/deps/" || true
 
-          ls -la "artifacts/${{ matrix.arch }}"
-          ls -la "artifacts/${{ matrix.arch }}/deps" || true
+          ls -la "artifacts/lib/linux/${{ matrix.arch }}"
+          ls -la "artifacts/lib/linux/${{ matrix.arch }}/deps" || true
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
