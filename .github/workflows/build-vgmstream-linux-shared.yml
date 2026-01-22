@@ -9,7 +9,15 @@ on:
 
 jobs:
   build-linux:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runs_on: ubuntu-latest
+          - arch: aarch64
+            runs_on: ubuntu-24.04-arm64
+    runs-on: ${{ matrix.runs_on }}
     steps:
       - uses: actions/checkout@v4
 
@@ -44,12 +52,19 @@ jobs:
           mkdir -p artifacts/deps
           cp -f build-vgmstream-linux/src/libvgmstream.so* artifacts/
 
-          if [ -d /usr/lib/x86_64-linux-gnu ]; then
-            cp -L /usr/lib/x86_64-linux-gnu/libogg.so* artifacts/deps/ || true
-            cp -L /usr/lib/x86_64-linux-gnu/libvorbis.so* artifacts/deps/ || true
-            cp -L /usr/lib/x86_64-linux-gnu/libvorbisfile.so* artifacts/deps/ || true
-            cp -L /usr/lib/x86_64-linux-gnu/libmpg123.so* artifacts/deps/ || true
+          ARCH="$(uname -m)"
+          if [ "${ARCH}" = "x86_64" ] && [ -d /usr/lib/x86_64-linux-gnu ]; then
+            LIBDIR="/usr/lib/x86_64-linux-gnu"
+          elif [ "${ARCH}" = "aarch64" ] && [ -d /usr/lib/aarch64-linux-gnu ]; then
+            LIBDIR="/usr/lib/aarch64-linux-gnu"
+          else
+            LIBDIR="/usr/lib"
           fi
+
+          cp -L "${LIBDIR}"/libogg.so* artifacts/deps/ || true
+          cp -L "${LIBDIR}"/libvorbis.so* artifacts/deps/ || true
+          cp -L "${LIBDIR}"/libvorbisfile.so* artifacts/deps/ || true
+          cp -L "${LIBDIR}"/libmpg123.so* artifacts/deps/ || true
 
           ls -la artifacts
           ls -la artifacts/deps || true
@@ -57,6 +72,6 @@ jobs:
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: vgmstream-linux-shared
+          name: vgmstream-linux-${{ matrix.arch }}-shared
           path: artifacts/
           retention-days: 30

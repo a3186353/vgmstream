@@ -1,0 +1,81 @@
+name: Build vgmstream Android shared
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'external/vgmstream/**'
+      - '.github/workflows/build-vgmstream-android-shared.yml'
+
+jobs:
+  build-android:
+    strategy:
+      fail-fast: false
+      matrix:
+        abi: [armeabi-v7a, arm64-v8a, x86_64]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake ninja-build pkg-config autoconf automake libtool libtool-bin m4 gettext gawk
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android NDK
+        env:
+          NDK_VERSION: 26.2.11394342
+        run: |
+          yes | sdkmanager --licenses >/dev/null
+          sdkmanager --install "platforms;android-21" "ndk;${NDK_VERSION}"
+          echo "ANDROID_NDK_HOME=${ANDROID_SDK_ROOT}/ndk/${NDK_VERSION}" >> $GITHUB_ENV
+
+      - name: Configure
+        run: |
+          VGM_DEPS_DIR="${GITHUB_WORKSPACE}/external/vgmstream/dependencies"
+          cmake -S external/vgmstream -B "build-vgmstream-android-${{ matrix.abi }}" -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_TOOLCHAIN_FILE="${ANDROID_NDK_HOME}/build/cmake/android.toolchain.cmake" \
+            -DANDROID_ABI="${{ matrix.abi }}" \
+            -DANDROID_PLATFORM=android-21 \
+            -DANDROID_STL=c++_static \
+            -DMPEG_PATH="${VGM_DEPS_DIR}/mpg123" \
+            -DOGG_PATH="${VGM_DEPS_DIR}/ogg" \
+            -DUSE_VORBIS=ON \
+            -DUSE_MPEG=ON \
+            -DUSE_FFMPEG=OFF \
+            -DUSE_CELT=OFF \
+            -DUSE_ATRAC9=OFF \
+            -DUSE_SPEEX=OFF \
+            -DUSE_G719=OFF \
+            -DUSE_G7221=ON \
+            -DBUILD_CLI=OFF \
+            -DBUILD_V123=OFF \
+            -DBUILD_AUDACIOUS=OFF \
+            -DBUILD_SHARED_LIBS=ON
+
+      - name: Build
+        run: |
+          cmake --build "build-vgmstream-android-${{ matrix.abi }}"
+
+      - name: Collect Artifacts
+        run: |
+          mkdir -p "artifacts/${{ matrix.abi }}"
+          cp -f "build-vgmstream-android-${{ matrix.abi }}/src/libvgmstream.so" "artifacts/${{ matrix.abi }}/"
+          ls -la "artifacts/${{ matrix.abi }}"
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: vgmstream-android-${{ matrix.abi }}-shared
+          path: artifacts/
+          retention-days: 30
