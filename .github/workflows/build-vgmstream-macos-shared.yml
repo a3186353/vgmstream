@@ -32,6 +32,8 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_PREFIX_PATH="${BREW_PREFIX}" \
             -DMPG123_DIR="$(brew --prefix mpg123)" \
+            -DMPG123_INCLUDE_DIR="$(brew --prefix mpg123)/include" \
+            -DMPG123_LIBRARIES="$(brew --prefix mpg123)/lib/libmpg123.dylib" \
             -DOGG_ROOT="$(brew --prefix libogg)" \
             -DVORBIS_ROOT="$(brew --prefix libvorbis)" \
             -DVORBISFILE_ROOT="$(brew --prefix libvorbis)" \
