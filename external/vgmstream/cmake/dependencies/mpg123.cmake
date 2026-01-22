@@ -37,10 +37,38 @@ if(NOT WIN32 AND USE_MPEG)
 				)
 			endif()
 			
+			set(MPEG_CC "${CMAKE_C_COMPILER}")
+			if(ANDROID)
+				set(ANDROID_API "")
+				if(DEFINED CMAKE_ANDROID_API)
+					set(ANDROID_API "${CMAKE_ANDROID_API}")
+				elseif(DEFINED CMAKE_SYSTEM_VERSION)
+					set(ANDROID_API "${CMAKE_SYSTEM_VERSION}")
+				else()
+					set(ANDROID_API "21")
+				endif()
+
+				if(DEFINED CMAKE_C_COMPILER_TARGET AND NOT "${CMAKE_C_COMPILER_TARGET}" STREQUAL "")
+					set(MPEG_CC "${CMAKE_C_COMPILER} --target=${CMAKE_C_COMPILER_TARGET}")
+				elseif(CMAKE_ANDROID_ARCH_ABI STREQUAL "armeabi-v7a")
+					set(MPEG_CC "${CMAKE_C_COMPILER} --target=armv7a-linux-androideabi${ANDROID_API}")
+				elseif(CMAKE_ANDROID_ARCH_ABI STREQUAL "arm64-v8a")
+					set(MPEG_CC "${CMAKE_C_COMPILER} --target=aarch64-linux-android${ANDROID_API}")
+				elseif(CMAKE_ANDROID_ARCH_ABI STREQUAL "x86")
+					set(MPEG_CC "${CMAKE_C_COMPILER} --target=i686-linux-android${ANDROID_API}")
+				elseif(CMAKE_ANDROID_ARCH_ABI STREQUAL "x86_64")
+					set(MPEG_CC "${CMAKE_C_COMPILER} --target=x86_64-linux-android${ANDROID_API}")
+				endif()
+
+				if(DEFINED CMAKE_SYSROOT AND NOT "${CMAKE_SYSROOT}" STREQUAL "")
+					set(MPEG_CC "${MPEG_CC} --sysroot=${CMAKE_SYSROOT}")
+				endif()
+			endif()
+
 			set(MPEG_CONFIGURE
 				--enable-static
 				--disable-shared
-				CC="${CMAKE_C_COMPILER}"
+				CC="${MPEG_CC}"
 				AR="${CMAKE_AR}"
 				RANLIB="${CMAKE_RANLIB}"
 			)
