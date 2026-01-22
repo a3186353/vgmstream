@@ -2,12 +2,6 @@ name: Build vgmstream Linux shared
 
 on:
   workflow_dispatch:
-    inputs:
-      build_aarch64:
-        description: Build aarch64 (slow)
-        required: false
-        type: boolean
-        default: false
   push:
     paths:
       - 'external/vgmstream/**'
@@ -18,8 +12,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        arch: ${{ fromJSON(github.event_name == 'workflow_dispatch' && inputs.build_aarch64 && '["x86_64","aarch64"]' || '["x86_64"]') }}
-    runs-on: ubuntu-latest
+        include:
+          - arch: x86_64
+            runs_on: ubuntu-latest
+          - arch: aarch64
+            runs_on: ubuntu-latest
+    runs-on: ${{ matrix.runs_on }}
     steps:
       - uses: actions/checkout@v4
 
@@ -31,15 +29,8 @@ jobs:
 
       - name: Install Dependencies (aarch64 cross)
         if: matrix.arch == 'aarch64'
-        id: cross_deps
-        continue-on-error: true
         run: |
-          sudo dpkg --add-architecture arm64
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            build-essential cmake pkg-config \
-            crossbuild-essential-arm64 pkg-config-aarch64-linux-gnu \
-            libvorbis-dev:arm64 libogg-dev:arm64 libmpg123-dev:arm64
+          echo "Skip cross toolchain; use docker+qemu instead"
 
       - name: Configure
         if: matrix.arch == 'x86_64'
@@ -66,57 +57,35 @@ jobs:
 
       - name: Configure (aarch64 cross)
         if: matrix.arch == 'aarch64'
-        id: cross_config
-        continue-on-error: true
         run: |
-          export PKG_CONFIG_LIBDIR="/usr/lib/aarch64-linux-gnu/pkgconfig:/usr/share/pkgconfig"
-          cmake -S external/vgmstream -B build-vgmstream-linux-aarch64 \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_SYSTEM_NAME=Linux \
-            -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
-            -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
-            -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
-            -DPKG_CONFIG_EXECUTABLE=aarch64-linux-gnu-pkg-config \
-            -DCMAKE_FIND_ROOT_PATH="/usr/aarch64-linux-gnu;/usr/lib/aarch64-linux-gnu" \
-            -DCMAKE_FIND_ROOT_PATH_MODE_PROGRAM=NEVER \
-            -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY \
-            -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=ONLY \
-            -DUSE_VORBIS=ON \
-            -DUSE_MPEG=ON \
-            -DUSE_FFMPEG=OFF \
-            -DUSE_CELT=OFF \
-            -DUSE_ATRAC9=OFF \
-            -DUSE_SPEEX=OFF \
-            -DUSE_G719=OFF \
-            -DUSE_G7221=ON \
-            -DBUILD_CLI=OFF \
-            -DBUILD_V123=OFF \
-            -DBUILD_AUDACIOUS=OFF \
-            -DBUILD_SHARED_LIBS=ON
+          echo "Skip cross configure; use docker+qemu instead"
 
       - name: Build (aarch64 cross)
         if: matrix.arch == 'aarch64'
-        id: cross_build
-        continue-on-error: true
         run: |
-          cmake --build build-vgmstream-linux-aarch64 -j$(nproc)
+          echo "Skip cross build; use docker+qemu instead"
 
-      - name: Set up QEMU (fallback)
-        if: matrix.arch == 'aarch64' && steps.cross_build.outcome != 'success'
+      - name: Set up QEMU
+        if: matrix.arch == 'aarch64'
         uses: docker/setup-qemu-action@v3
 
-      - name: Build (aarch64 qemu fallback)
-        if: matrix.arch == 'aarch64' && steps.cross_build.outcome != 'success'
+      - name: Build (aarch64 qemu)
+        if: matrix.arch == 'aarch64'
+        env:
+          DEBIAN_FRONTEND: noninteractive
         run: |
+          rm -rf artifacts
+          mkdir -p artifacts/deps
           docker run --rm --platform linux/arm64 \
             -v "${GITHUB_WORKSPACE}:/work" \
             -w /work \
             ubuntu:24.04 \
             bash -lc "\
+              set -euo pipefail && \
+              export DEBIAN_FRONTEND=noninteractive && \
               apt-get update && \
-              apt-get install -y build-essential cmake pkg-config libvorbis-dev libogg-dev libmpg123-dev && \
-              rm -rf build-vgmstream-linux-aarch64 && \
-              cmake -S external/vgmstream -B build-vgmstream-linux-aarch64 \
+              apt-get install -y --no-install-recommends build-essential cmake pkg-config libvorbis-dev libogg-dev libmpg123-dev ca-certificates && \
+              cmake -S /work/external/vgmstream -B /tmp/build-vgmstream-linux-aarch64 \
                 -DCMAKE_BUILD_TYPE=Release \
                 -DUSE_VORBIS=ON \
                 -DUSE_MPEG=ON \
@@ -130,15 +99,16 @@ jobs:
                 -DBUILD_V123=OFF \
                 -DBUILD_AUDACIOUS=OFF \
                 -DBUILD_SHARED_LIBS=ON && \
-              cmake --build build-vgmstream-linux-aarch64 -j2 && \
-              mkdir -p artifacts/deps && \
-              cp -L /usr/lib/aarch64-linux-gnu/libogg.so* artifacts/deps/ || true && \
-              cp -L /usr/lib/aarch64-linux-gnu/libvorbis.so* artifacts/deps/ || true && \
-              cp -L /usr/lib/aarch64-linux-gnu/libvorbisfile.so* artifacts/deps/ || true && \
-              cp -L /usr/lib/aarch64-linux-gnu/libmpg123.so* artifacts/deps/ || true \
+              cmake --build /tmp/build-vgmstream-linux-aarch64 -j2 && \
+              cp -f /tmp/build-vgmstream-linux-aarch64/src/libvgmstream.so /work/artifacts/ && \
+              cp -L /usr/lib/aarch64-linux-gnu/libogg.so* /work/artifacts/deps/ || true && \
+              cp -L /usr/lib/aarch64-linux-gnu/libvorbis.so* /work/artifacts/deps/ || true && \
+              cp -L /usr/lib/aarch64-linux-gnu/libvorbisfile.so* /work/artifacts/deps/ || true && \
+              cp -L /usr/lib/aarch64-linux-gnu/libmpg123.so* /work/artifacts/deps/ || true \
             "
 
       - name: Collect Artifacts
+        if: matrix.arch == 'x86_64'
         run: |
           mkdir -p artifacts/deps
           if [ "${{ matrix.arch }}" = "x86_64" ]; then
@@ -148,17 +118,10 @@ jobs:
           fi
           cp -f "${BUILD_DIR}/src/libvgmstream.so" artifacts/
 
-          if [ "${{ matrix.arch }}" = "x86_64" ]; then
-            cp -L /usr/lib/x86_64-linux-gnu/libogg.so* artifacts/deps/ || true
-            cp -L /usr/lib/x86_64-linux-gnu/libvorbis.so* artifacts/deps/ || true
-            cp -L /usr/lib/x86_64-linux-gnu/libvorbisfile.so* artifacts/deps/ || true
-            cp -L /usr/lib/x86_64-linux-gnu/libmpg123.so* artifacts/deps/ || true
-          else
-            cp -L /usr/lib/aarch64-linux-gnu/libogg.so* artifacts/deps/ || true
-            cp -L /usr/lib/aarch64-linux-gnu/libvorbis.so* artifacts/deps/ || true
-            cp -L /usr/lib/aarch64-linux-gnu/libvorbisfile.so* artifacts/deps/ || true
-            cp -L /usr/lib/aarch64-linux-gnu/libmpg123.so* artifacts/deps/ || true
-          fi
+          cp -L /usr/lib/x86_64-linux-gnu/libogg.so* artifacts/deps/ || true
+          cp -L /usr/lib/x86_64-linux-gnu/libvorbis.so* artifacts/deps/ || true
+          cp -L /usr/lib/x86_64-linux-gnu/libvorbisfile.so* artifacts/deps/ || true
+          cp -L /usr/lib/x86_64-linux-gnu/libmpg123.so* artifacts/deps/ || true
 
           ls -la artifacts
           ls -la artifacts/deps || true
