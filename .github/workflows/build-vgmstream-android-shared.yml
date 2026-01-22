@@ -41,7 +41,7 @@ jobs:
           rm -rf artifacts
           mkdir -p artifacts/lib/android
 
-          for ABI in arm64-v8a armeabi-v7a; do
+          for ABI in arm64-v8a armeabi-v7a x86 x86_64; do
             BUILD_DIR="build-vgmstream-android-${ABI}"
             cmake -S external/vgmstream -B "${BUILD_DIR}" -G Ninja \
               -DCMAKE_BUILD_TYPE=Release \
