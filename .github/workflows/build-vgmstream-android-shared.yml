@@ -38,8 +38,6 @@ jobs:
       - name: Build ABIs
         run: |
           set -euo pipefail
-          VGM_DEPS_DIR="${GITHUB_WORKSPACE}/external/vgmstream/dependencies"
-
           rm -rf artifacts
           mkdir -p artifacts
 
@@ -51,8 +49,6 @@ jobs:
               -DANDROID_ABI="${ABI}" \
               -DANDROID_PLATFORM=android-21 \
               -DANDROID_STL=c++_static \
-              -DMPEG_PATH="${VGM_DEPS_DIR}/mpg123" \
-              -DOGG_PATH="${VGM_DEPS_DIR}/ogg" \
               -DUSE_VORBIS=ON \
               -DUSE_MPEG=ON \
               -DUSE_FFMPEG=OFF \
@@ -68,7 +64,7 @@ jobs:
 
             cmake --build "${BUILD_DIR}"
 
-            mkdir -p "artifacts/${ABI}"
+            mkdir -p "artifacts/${ABI}/deps"
             cp -f "${BUILD_DIR}/src/libvgmstream.so" "artifacts/${ABI}/"
           done
 

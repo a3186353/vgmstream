@@ -27,10 +27,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential cmake pkg-config libvorbis-dev libogg-dev libmpg123-dev
 
-      - name: Install Dependencies (aarch64 cross)
+      - name: Install Dependencies (aarch64)
         if: matrix.arch == 'aarch64'
         run: |
-          echo "Skip cross toolchain; use docker+qemu instead"
+          echo "Use docker+qemu for aarch64 build"
 
       - name: Configure
         if: matrix.arch == 'x86_64'
@@ -55,36 +55,26 @@ jobs:
         run: |
           cmake --build build-vgmstream-linux-x86_64 -j$(nproc)
 
-      - name: Configure (aarch64 cross)
-        if: matrix.arch == 'aarch64'
-        run: |
-          echo "Skip cross configure; use docker+qemu instead"
-
-      - name: Build (aarch64 cross)
-        if: matrix.arch == 'aarch64'
-        run: |
-          echo "Skip cross build; use docker+qemu instead"
-
       - name: Set up QEMU
         if: matrix.arch == 'aarch64'
         uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
 
       - name: Build (aarch64 qemu)
         if: matrix.arch == 'aarch64'
-        env:
-          DEBIAN_FRONTEND: noninteractive
         run: |
           rm -rf artifacts
-          mkdir -p artifacts/deps
+          mkdir -p "artifacts/${{ matrix.arch }}/deps"
           docker run --rm --platform linux/arm64 \
             -v "${GITHUB_WORKSPACE}:/work" \
-            -w /work \
             ubuntu:24.04 \
-            bash -lc "\
-              set -euo pipefail && \
-              export DEBIAN_FRONTEND=noninteractive && \
-              apt-get update && \
-              apt-get install -y --no-install-recommends build-essential cmake pkg-config libvorbis-dev libogg-dev libmpg123-dev ca-certificates && \
+            bash -lc 'set -euo pipefail; \
+              export DEBIAN_FRONTEND=noninteractive; \
+              for i in 1 2 3 4 5; do apt-get -o Acquire::Retries=3 update && break || (echo "apt-get update failed ($i)"; sleep 5); done; \
+              apt-get -o Acquire::Retries=3 install -y --no-install-recommends build-essential cmake pkg-config libvorbis-dev libogg-dev libmpg123-dev ca-certificates; \
+              mkdir -p /work/artifacts/${{ matrix.arch }}/deps; \
+              rm -rf /tmp/build-vgmstream-linux-aarch64; \
               cmake -S /work/external/vgmstream -B /tmp/build-vgmstream-linux-aarch64 \
                 -DCMAKE_BUILD_TYPE=Release \
                 -DUSE_VORBIS=ON \
@@ -98,37 +88,56 @@ jobs:
                 -DBUILD_CLI=OFF \
                 -DBUILD_V123=OFF \
                 -DBUILD_AUDACIOUS=OFF \
-                -DBUILD_SHARED_LIBS=ON && \
-              cmake --build /tmp/build-vgmstream-linux-aarch64 -j2 && \
-              cp -f /tmp/build-vgmstream-linux-aarch64/src/libvgmstream.so /work/artifacts/ && \
-              cp -L /usr/lib/aarch64-linux-gnu/libogg.so* /work/artifacts/deps/ || true && \
-              cp -L /usr/lib/aarch64-linux-gnu/libvorbis.so* /work/artifacts/deps/ || true && \
-              cp -L /usr/lib/aarch64-linux-gnu/libvorbisfile.so* /work/artifacts/deps/ || true && \
-              cp -L /usr/lib/aarch64-linux-gnu/libmpg123.so* /work/artifacts/deps/ || true \
-            "
+                -DBUILD_SHARED_LIBS=ON; \
+              cmake --build /tmp/build-vgmstream-linux-aarch64 -j2; \
+              cp -f /tmp/build-vgmstream-linux-aarch64/src/libvgmstream.so /work/artifacts/${{ matrix.arch }}/; \
+              cp -L /usr/lib/aarch64-linux-gnu/libogg.so* /work/artifacts/${{ matrix.arch }}/deps/ || true; \
+              cp -L /usr/lib/aarch64-linux-gnu/libvorbis.so* /work/artifacts/${{ matrix.arch }}/deps/ || true; \
+              cp -L /usr/lib/aarch64-linux-gnu/libvorbisfile.so* /work/artifacts/${{ matrix.arch }}/deps/ || true; \
+              cp -L /usr/lib/aarch64-linux-gnu/libmpg123.so* /work/artifacts/${{ matrix.arch }}/deps/ || true;'
 
       - name: Collect Artifacts
         if: matrix.arch == 'x86_64'
         run: |
-          mkdir -p artifacts/deps
-          if [ "${{ matrix.arch }}" = "x86_64" ]; then
-            BUILD_DIR="build-vgmstream-linux-x86_64"
-          else
-            BUILD_DIR="build-vgmstream-linux-aarch64"
-          fi
-          cp -f "${BUILD_DIR}/src/libvgmstream.so" artifacts/
+          mkdir -p "artifacts/${{ matrix.arch }}/deps"
+          BUILD_DIR="build-vgmstream-linux-${{ matrix.arch }}"
+          cp -f "${BUILD_DIR}/src/libvgmstream.so" "artifacts/${{ matrix.arch }}/"
 
-          cp -L /usr/lib/x86_64-linux-gnu/libogg.so* artifacts/deps/ || true
-          cp -L /usr/lib/x86_64-linux-gnu/libvorbis.so* artifacts/deps/ || true
-          cp -L /usr/lib/x86_64-linux-gnu/libvorbisfile.so* artifacts/deps/ || true
-          cp -L /usr/lib/x86_64-linux-gnu/libmpg123.so* artifacts/deps/ || true
+          cp -L /usr/lib/x86_64-linux-gnu/libogg.so* "artifacts/${{ matrix.arch }}/deps/" || true
+          cp -L /usr/lib/x86_64-linux-gnu/libvorbis.so* "artifacts/${{ matrix.arch }}/deps/" || true
+          cp -L /usr/lib/x86_64-linux-gnu/libvorbisfile.so* "artifacts/${{ matrix.arch }}/deps/" || true
+          cp -L /usr/lib/x86_64-linux-gnu/libmpg123.so* "artifacts/${{ matrix.arch }}/deps/" || true
 
-          ls -la artifacts
-          ls -la artifacts/deps || true
+          ls -la "artifacts/${{ matrix.arch }}"
+          ls -la "artifacts/${{ matrix.arch }}/deps" || true
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: vgmstream-linux-${{ matrix.arch }}-shared
+          path: artifacts/
+          retention-days: 30
+
+  package-linux:
+    name: Package Linux shared (x86_64 + aarch64)
+    runs-on: ubuntu-latest
+    needs: build-linux
+    steps:
+      - name: Download x86_64 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: vgmstream-linux-x86_64-shared
+          path: artifacts
+
+      - name: Download aarch64 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: vgmstream-linux-aarch64-shared
+          path: artifacts
+
+      - name: Upload combined artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vgmstream-linux-shared
           path: artifacts/
           retention-days: 30
