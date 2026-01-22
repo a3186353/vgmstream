@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 精简版 vgmstream 编译配置 - 只包含 G7221, G719, Vorbis, MPEG -->
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ImportGroup Label="ExtensionSettings" />
+
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+
+  <!-- 精简版配置 - 只启用 G7221, G719, Vorbis, MPEG -->
+  <PropertyGroup Label="UserMacros">
+    <VCmnDependenciesDir>../dependencies</VCmnDependenciesDir>
+    <!-- .h includes -->
+    <VLibAdditionalIncludeDirectories>..;../ext_includes;../ext_libs/Getopt</VLibAdditionalIncludeDirectories>
+    <VCliAdditionalIncludeDirectories>..;../ext_includes;../ext_libs/Getopt</VCliAdditionalIncludeDirectories>
+    <VCmdAdditionalIncludeDirectories>..</VCmdAdditionalIncludeDirectories>
+    
+    <!-- 精简版: Vorbis + MPEG + G7221(内置) - 覆盖所有FSB编码类型 -->
+    <VLibPreprocessorDefinitions>VGMSTREAM_VERSION_AUTO;VGM_LOG_OUTPUT;VGM_USE_VORBIS;VGM_USE_MPEG;VGM_USE_G7221;VGM_STDIO_UNICODE</VLibPreprocessorDefinitions>
+    <VCmnPreprocessorDefinitions>VGMSTREAM_VERSION_AUTO</VCmnPreprocessorDefinitions>
+    <VCliPreprocessorDefinitions>$(VCmnPreprocessorDefinitions);UNICODE;_UNICODE;VGM_STDIO_UNICODE</VCliPreprocessorDefinitions>
+    
+    <!-- 精简版依赖库 - Vorbis + MPEG -->
+    <VCmnAdditionalDependencies32>../ext_libs/libvorbis.lib;../ext_libs/libmpg123-0.lib</VCmnAdditionalDependencies32>
+    <VCliAdditionalDependencies32>$(VCmnAdditionalDependencies32);</VCliAdditionalDependencies32>
+    <VCmnAdditionalDependencies64>../ext_libs/dll-x64/libvorbis.lib;../ext_libs/dll-x64/libmpg123-0.lib</VCmnAdditionalDependencies64>
+    <VCliAdditionalDependencies64>$(VCmnAdditionalDependencies64)</VCliAdditionalDependencies64>
+    <VBuildCommandVersion>"$(ProjectDir)..\version-make.bat"</VBuildCommandVersion>
+  </PropertyGroup>
+
+  <!-- 输出目录 -->
+  <PropertyGroup>
+    <OutDir Condition="'$(Platform)'=='Win32'">$(SolutionDir)\$(Configuration)\</OutDir>
+    <OutDir Condition="'$(Platform)'=='x64'">$(SolutionDir)\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(SolutionDir)\build-msvc\$(Platform)-$(Configuration)\$(ProjectName)\</IntDir>
+  </PropertyGroup>
+
+  <!-- 编译设置 -->
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FloatingPointModel Condition="'$(Configuration)'=='Release'">Fast</FloatingPointModel>
+      <FloatingPointModel Condition="'$(Configuration)'!='Release'">Precise</FloatingPointModel>
+      <DisableSpecificWarnings>4018;4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+    </ClCompile>
+    <PreBuildEvent>
+      <Message>Generating version</Message>
+      <Command>$(VBuildCommandVersion)</Command>
+    </PreBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)'=='Debug'">
+    <ClCompile>
+      <Optimization>Disabled</Optimization>
+      <EnhancedinstructionSet>NoExtensions</EnhancedinstructionSet>
+      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)'=='Release'">
+    <ClCompile>
+      <Optimization>MaxSpeed</Optimization>
+      <EnhancedinstructionSet>NoExtensions</EnhancedinstructionSet>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Platform)'=='Win32'">
+    <Link>
+      <TargetMachine>MachineX86</TargetMachine>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Platform)'=='x64'">
+    <Link>
+      <TargetMachine>MachineX64</TargetMachine>
+    </Link>
+  </ItemDefinitionGroup>
+</Project>

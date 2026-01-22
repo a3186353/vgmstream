@@ -1,0 +1,99 @@
+# GitHub Actions: 自动编译vgmstream精简版Linux
+# 推送后自动触发，或在Actions页面手动触发
+
+name: Build Linux Slim
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-linux:
+    name: Build Linux (${{ matrix.arch }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: [x64, x86]
+    
+    steps:
+    - uses: actions/checkout@v4
+      
+    - name: Install Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential cmake
+        
+        if [ "${{ matrix.arch }}" = "x86" ]; then
+          sudo apt-get install -y gcc-multilib g++-multilib
+          # Vorbis/Ogg/MPG123 32-bit devs are tricky on standard Ubuntu runners without huge hassle.
+          # We will rely on vgmstream fetching them via CMake or we need i386 packages.
+          # Trying to install i386 libs often conflicts.
+          # For now, let CMake fetch them (since we disabled USE_SYSTEM_* implicitly if not found).
+          # BUT our script installs -dev packages which are x64.
+        else
+          sudo apt-get install -y libvorbis-dev libogg-dev libmpg123-dev
+        fi
+        
+    - name: Configure and Build
+      run: |
+        mkdir -p build-linux
+        cd build-linux
+        
+        EXTRA_FLAGS=""
+        if [ "${{ matrix.arch }}" = "x86" ]; then
+          export CFLAGS="-m32"
+          export CXXFLAGS="-m32"
+          EXTRA_FLAGS="-DCMAKE_SIZEOF_VOID_P=4"
+        fi
+        
+        cmake .. \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DUSE_VORBIS=ON \
+          -DUSE_MPEG=ON \
+          -DUSE_FFMPEG=OFF \
+          -DUSE_CELT=OFF \
+          -DUSE_ATRAC9=OFF \
+          -DUSE_SPEEX=OFF \
+          -DUSE_G719=OFF \
+          -DBUILD_CLI=ON \
+          -DBUILD_V123=OFF \
+          -DBUILD_AUDACIOUS=OFF \
+          -DBUILD_SHARED_LIBS=ON \
+          ${EXTRA_FLAGS}
+          
+        cmake --build . -j$(nproc)
+      
+    - name: Collect Artifacts
+      run: |
+        mkdir -p artifacts
+        # Copy SO
+        find build-linux -name "libvgmstream.so" -exec cp {} artifacts/ \; || true
+        # Copy CLI
+        find build-linux -name "vgmstream-cli" -exec cp {} artifacts/ \; || true
+        
+        # Collect deps
+        mkdir -p artifacts/deps
+        
+        if [ "${{ matrix.arch }}" = "x64" ]; then
+           # For x64 we used system libs
+           find /usr/lib -name "libvorbis.so*" -exec cp -L {} artifacts/deps/ \;
+           find /usr/lib -name "libogg.so*" -exec cp -L {} artifacts/deps/ \;
+           find /usr/lib -name "libmpg123.so*" -exec cp -L {} artifacts/deps/ \;
+        else
+           # For x86 we likely built them statically or CMake fetched them. 
+           # If CMake fetched them, they might be static libs (.a) linked into .so?
+           # If BUILD_SHARED_LIBS=ON, vgmstream .so is shared. 
+           # If dependencies were built as static (default for FetchDependency), they are inside libvgmstream.so.
+           # So we might not need to copy deps for x86 if they are static.
+           echo "Assuming x86 deps are statically linked or we need to find them in build dir."
+        fi
+        
+        ls -la artifacts/
+        
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: vgmstream-linux-slim-${{ matrix.arch }}
+        path: artifacts/
+        retention-days: 30

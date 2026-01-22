@@ -1,0 +1,71 @@
+# GitHub Actions: 自动编译vgmstream精简版 Android SO
+# 支持架构: arm64-v8a, armeabi-v7a, x86, x86_64
+
+name: Build Android Slim
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'external/vgmstream/**'
+  workflow_dispatch:
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: [arm64-v8a, armeabi-v7a, x86, x86_64]
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Android NDK
+      uses: android-actions/setup-android@v3
+    - uses: nttld/setup-ndk@v1
+      with:
+        ndk-version: r25c
+        
+    - name: Configure CMake
+      run: |
+        mkdir -p build-${{ matrix.arch }}
+        cd build-${{ matrix.arch }}
+        cmake .. \
+          -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake \
+          -DANDROID_ABI=${{ matrix.arch }} \
+          -DANDROID_PLATFORM=android-21 \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DUSE_VORBIS=ON \
+          -DUSE_MPEG=ON \
+          -DUSE_FFMPEG=OFF \
+          -DUSE_CELT=OFF \
+          -DUSE_ATRAC9=OFF \
+          -DUSE_SPEEX=OFF \
+          -DUSE_G719=OFF \
+          -DUSE_G7221=ON \
+          -DBUILD_CLI= OFF \
+          -DBUILD_V123=OFF \
+          -DBUILD_AUDACIOUS=OFF \
+          -DBUILD_SHARED_LIBS=ON
+          
+    # 注意: Android NDK编译依赖库(Vorbis/MPG123)比较复杂
+    # vgmstream并没有自带这些依赖的Android构建脚本
+    # 我们可能需要禁用外部依赖(USE_VORBIS=OFF)或必须自行编译依赖
+    # 这里先尝试编译，如果不通过，可能需要使用内置的精简模式(无外部依赖)
+    
+    - name: Build
+      run: cmake --build build-${{ matrix.arch }} -j$(nproc)
+      continue-on-error: true  # 允许失败，用于探测
+      
+    - name: Collect Artifacts
+      if: success()
+      run: |
+        mkdir -p artifacts/${{ matrix.arch }}
+        find build-${{ matrix.arch }} -name "libvgmstream.so" -exec cp {} artifacts/${{ matrix.arch }}/ \;
+        
+    - name: Upload Artifacts
+      if: success()
+      uses: actions/upload-artifact@v4
+      with:
+        name: vgmstream-android-${{ matrix.arch }}
+        path: artifacts/

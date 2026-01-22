@@ -1,0 +1,51 @@
+name: Build Android SO
+
+on: [push, pull_request]
+
+jobs:
+  build-android:
+    name: Build Android (${{ matrix.abi }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        abi: [arm64-v8a, armeabi-v7a, x86, x86_64]
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    - name: Configure CMake
+      run: |
+        cmake -S . -B build-${{ matrix.abi }} \
+          -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake \
+          -DANDROID_ABI=${{ matrix.abi }} \
+          -DANDROID_PLATFORM=android-21 \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DBUILD_SHARED_LIBS=ON \
+          -DUSE_VORBIS=ON \
+          -DUSE_MPEG=ON \
+          -DUSE_FFMPEG=OFF \
+          -DUSE_CELT=OFF \
+          -DUSE_ATRAC9=OFF \
+          -DUSE_G719=OFF \
+          -DUSE_SPEEX=OFF
+
+    - name: Build
+      run: cmake --build build-${{ matrix.abi }} --config Release
+
+    - name: Prepare Artifacts
+      run: |
+        mkdir -p artifacts/${{ matrix.abi }}
+        cp build-${{ matrix.abi }}/libvgmstream.so artifacts/${{ matrix.abi }}/
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: vgmstream-android-${{ matrix.abi }}
+        path: artifacts/${{ matrix.abi }}

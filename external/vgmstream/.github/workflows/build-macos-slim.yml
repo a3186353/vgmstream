@@ -1,0 +1,66 @@
+# GitHub Actions: 自动编译vgmstream精简版 macOS
+# 推送后自动触发，或在Actions页面手动触发
+
+name: Build macOS Slim
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'external/vgmstream/**'
+  workflow_dispatch:
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+      
+    - name: Install Dependencies
+      run: |
+        brew update
+        brew install cmake libvorbis mpg123
+        
+    - name: Configure and Build
+      run: |
+        mkdir -p build-macos
+        cd build-macos
+        cmake .. \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DUSE_VORBIS=ON \
+          -DUSE_MPEG=ON \
+          -DUSE_FFMPEG=OFF \
+          -DUSE_CELT=OFF \
+          -DUSE_ATRAC9=OFF \
+          -DUSE_SPEEX=OFF \
+          -DUSE_G719=OFF \
+          -DBUILD_CLI=ON \
+          -DBUILD_V123=OFF \
+          -DBUILD_AUDACIOUS=OFF \
+          -DBUILD_SHARED_LIBS=ON
+        cmake --build . -j$(sysctl -n hw.ncpu)
+      
+    - name: Collect Artifacts
+      run: |
+        mkdir -p artifacts
+        # 收集动态库 .dylib
+        find build-macos -name "libvgmstream.dylib" -exec cp {} artifacts/ \; || true
+        # 收集 CLI
+        find build-macos -name "vgmstream-cli" -exec cp {} artifacts/ \; || true
+        
+        # 收集依赖库
+        mkdir -p artifacts/deps
+        cp $(brew --prefix libvorbis)/lib/libvorbis.dylib artifacts/deps/
+        cp $(brew --prefix libogg)/lib/libogg.dylib artifacts/deps/
+        cp $(brew --prefix mpg123)/lib/libmpg123.dylib artifacts/deps/
+        
+        ls -la artifacts/
+        ls -la artifacts/deps/
+        
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: vgmstream-macos-slim
+        path: artifacts/
+        retention-days: 30
