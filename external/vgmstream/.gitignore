@@ -89,6 +89,11 @@ CMakeFiles
 /audacious/Makefile
 cmake_install.cmake
 
+# local generated build outputs (repo integration)
+/build-slim-win-x64
+/build-slim-win-x86
+/output-slim
+
 # doc stuff
 changelog.txt
 formats-info.md
