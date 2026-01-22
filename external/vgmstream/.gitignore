@@ -59,6 +59,7 @@ stamp-h1
 *.autotools
 *.am
 *.in
+!src/vgmstream-config.cmake.in
 *.m4
 *.lo
 *.la
