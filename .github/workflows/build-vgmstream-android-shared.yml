@@ -9,10 +9,6 @@ on:
 
 jobs:
   build-android:
-    strategy:
-      fail-fast: false
-      matrix:
-        abi: [armeabi-v7a, arm64-v8a, x86_64]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -39,43 +35,48 @@ jobs:
           sdkmanager --install "platforms;android-21" "ndk;${NDK_VERSION}"
           echo "ANDROID_NDK_HOME=${ANDROID_SDK_ROOT}/ndk/${NDK_VERSION}" >> $GITHUB_ENV
 
-      - name: Configure
+      - name: Build ABIs
         run: |
+          set -euo pipefail
           VGM_DEPS_DIR="${GITHUB_WORKSPACE}/external/vgmstream/dependencies"
-          cmake -S external/vgmstream -B "build-vgmstream-android-${{ matrix.abi }}" -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_TOOLCHAIN_FILE="${ANDROID_NDK_HOME}/build/cmake/android.toolchain.cmake" \
-            -DANDROID_ABI="${{ matrix.abi }}" \
-            -DANDROID_PLATFORM=android-21 \
-            -DANDROID_STL=c++_static \
-            -DMPEG_PATH="${VGM_DEPS_DIR}/mpg123" \
-            -DOGG_PATH="${VGM_DEPS_DIR}/ogg" \
-            -DUSE_VORBIS=ON \
-            -DUSE_MPEG=ON \
-            -DUSE_FFMPEG=OFF \
-            -DUSE_CELT=OFF \
-            -DUSE_ATRAC9=OFF \
-            -DUSE_SPEEX=OFF \
-            -DUSE_G719=OFF \
-            -DUSE_G7221=ON \
-            -DBUILD_CLI=OFF \
-            -DBUILD_V123=OFF \
-            -DBUILD_AUDACIOUS=OFF \
-            -DBUILD_SHARED_LIBS=ON
 
-      - name: Build
-        run: |
-          cmake --build "build-vgmstream-android-${{ matrix.abi }}"
+          rm -rf artifacts
+          mkdir -p artifacts
 
-      - name: Collect Artifacts
-        run: |
-          mkdir -p "artifacts/${{ matrix.abi }}"
-          cp -f "build-vgmstream-android-${{ matrix.abi }}/src/libvgmstream.so" "artifacts/${{ matrix.abi }}/"
-          ls -la "artifacts/${{ matrix.abi }}"
+          for ABI in arm64-v8a armeabi-v7a x86 x86_64; do
+            BUILD_DIR="build-vgmstream-android-${ABI}"
+            cmake -S external/vgmstream -B "${BUILD_DIR}" -G Ninja \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_TOOLCHAIN_FILE="${ANDROID_NDK_HOME}/build/cmake/android.toolchain.cmake" \
+              -DANDROID_ABI="${ABI}" \
+              -DANDROID_PLATFORM=android-21 \
+              -DANDROID_STL=c++_static \
+              -DMPEG_PATH="${VGM_DEPS_DIR}/mpg123" \
+              -DOGG_PATH="${VGM_DEPS_DIR}/ogg" \
+              -DUSE_VORBIS=ON \
+              -DUSE_MPEG=ON \
+              -DUSE_FFMPEG=OFF \
+              -DUSE_CELT=OFF \
+              -DUSE_ATRAC9=OFF \
+              -DUSE_SPEEX=OFF \
+              -DUSE_G719=OFF \
+              -DUSE_G7221=ON \
+              -DBUILD_CLI=OFF \
+              -DBUILD_V123=OFF \
+              -DBUILD_AUDACIOUS=OFF \
+              -DBUILD_SHARED_LIBS=ON
+
+            cmake --build "${BUILD_DIR}"
+
+            mkdir -p "artifacts/${ABI}"
+            cp -f "${BUILD_DIR}/src/libvgmstream.so" "artifacts/${ABI}/"
+          done
+
+          find artifacts -maxdepth 2 -type f -print
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: vgmstream-android-${{ matrix.abi }}-shared
+          name: vgmstream-android-shared
           path: artifacts/
           retention-days: 30
