@@ -2,6 +2,12 @@ name: Build vgmstream Linux shared
 
 on:
   workflow_dispatch:
+    inputs:
+      build_aarch64:
+        description: Build aarch64 (slow)
+        required: false
+        type: boolean
+        default: false
   push:
     paths:
       - 'external/vgmstream/**'
@@ -12,12 +18,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - arch: x86_64
-            runs_on: ubuntu-latest
-          - arch: aarch64
-            runs_on: ubuntu-latest
-    runs-on: ${{ matrix.runs_on }}
+        arch: ${{ fromJSON(github.event_name == 'workflow_dispatch' && inputs.build_aarch64 && '["x86_64","aarch64"]' || '["x86_64"]') }}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
