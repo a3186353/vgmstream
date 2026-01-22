@@ -21,19 +21,9 @@ jobs:
       - name: Configure
         run: |
           BREW_PREFIX="$(brew --prefix)"
-          echo "brew prefix: ${BREW_PREFIX}"
-
-          echo "mpg123 prefix: $(brew --prefix mpg123)"
-          ls -la "$(brew --prefix mpg123)/lib" || true
-
-          pkg-config --version || true
-          pkg-config --modversion ogg || true
-          pkg-config --modversion vorbis || true
-          pkg-config --modversion vorbisfile || true
 
           cmake -S external/vgmstream -B build-vgmstream-macos \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_VERBOSE_MAKEFILE=ON \
             -DCMAKE_PREFIX_PATH="${BREW_PREFIX}" \
             -DMPG123_DIR="$(brew --prefix mpg123)" \
             -DMPG123_INCLUDE_DIR="$(brew --prefix mpg123)/include" \
@@ -55,54 +45,8 @@ jobs:
             -DBUILD_SHARED_LIBS=ON
 
       - name: Build
-        continue-on-error: true
-        id: build
         run: |
-          set -o pipefail
-          cmake --build build-vgmstream-macos -j$(sysctl -n hw.ncpu) --verbose 2>&1 | tee build-vgmstream-macos/build.log
-
-      - name: Debug Build
-        if: always()
-        run: |
-          echo "===== build.log (tail) ====="
-          if [ -f build-vgmstream-macos/build.log ]; then
-            tail -n 200 build-vgmstream-macos/build.log || true
-          fi
-
-          echo "===== CMakeCache (filtered) ====="
-          if [ -f build-vgmstream-macos/CMakeCache.txt ]; then
-            grep -E '^(CMAKE_PREFIX_PATH|CMAKE_LIBRARY_PATH|CMAKE_INCLUDE_PATH|MPG123_|OGG_|VORBIS|VORBISFILE)\b' build-vgmstream-macos/CMakeCache.txt || true
-          fi
-
-          echo "===== link.txt (if exists) ====="
-          if [ -f build-vgmstream-macos/src/CMakeFiles/libvgmstream_shared.dir/link.txt ]; then
-            cat build-vgmstream-macos/src/CMakeFiles/libvgmstream_shared.dir/link.txt
-          fi
-
-          echo "===== library dirs ====="
-          ls -la "$(brew --prefix mpg123)/lib" || true
-          ls -la "$(brew --prefix libogg)/lib" || true
-          ls -la "$(brew --prefix libvorbis)/lib" || true
-
-      - name: Upload Debug Logs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: vgmstream-macos-debug
-          path: |
-            build-vgmstream-macos/build.log
-            build-vgmstream-macos/CMakeCache.txt
-            build-vgmstream-macos/src/CMakeFiles/libvgmstream_shared.dir/link.txt
-          retention-days: 30
-
-      - name: Fail If Build Failed
-        if: steps.build.outcome != 'success'
-        run: |
-          echo "===== build failed, see 'Debug Build' step or vgmstream-macos-debug artifact ====="
-          if [ -f build-vgmstream-macos/build.log ]; then
-            tail -n 200 build-vgmstream-macos/build.log || true
-          fi
-          exit 1
+          cmake --build build-vgmstream-macos -j$(sysctl -n hw.ncpu)
 
       - name: Collect Artifacts
         run: |
