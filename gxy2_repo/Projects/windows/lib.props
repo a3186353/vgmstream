@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ImportGroup Label="PropertySheets" />
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <RepoRoot Condition="'$(RepoRoot)'==''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..\'))</RepoRoot>
+    <SolutionDir>$(MSBuildThisFileDirectory)</SolutionDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <PostBuildEvent>
+      <Command>"%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -Command "$dest=\"$(RepoRoot)..\\GGELUA\\lib\"; New-Item -ItemType Directory -Force -Path $dest | Out-Null; Copy-Item -Force -LiteralPath \"$(TargetPath)\" -Destination (Join-Path $dest \"$(TargetFileName)\"); $platform=\"$(Platform)\"; if($platform -ne 'x64'){ exit 0 }; $vgmBase=\"$(RepoRoot)..\\external\\vgmstream\"; $vgmBuild=Join-Path $vgmBase 'build-slim-win-x64\\src\\Release'; $vgmExt=Join-Path $vgmBase 'ext_libs\\dll-x64'; Copy-Item -Force -LiteralPath (Join-Path $vgmBuild 'libvgmstream.dll') -Destination (Join-Path $dest 'libvgmstream.dll'); Copy-Item -Force -LiteralPath (Join-Path $vgmExt 'libg719_decode.dll') -Destination (Join-Path $dest 'libg719_decode.dll'); if(-not (Test-Path (Join-Path $dest 'libvorbis.dll'))){ Copy-Item -LiteralPath (Join-Path $vgmExt 'libvorbis.dll') -Destination (Join-Path $dest 'libvorbis.dll'); }; if(-not (Test-Path (Join-Path $dest 'libmpg123-0.dll'))){ Copy-Item -LiteralPath (Join-Path $vgmExt 'libmpg123-0.dll') -Destination (Join-Path $dest 'libmpg123-0.dll'); }"</Command>
+    </PostBuildEvent>
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(RepoRoot)Dependencies\lua;$(RepoRoot)Dependencies\SDL\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemGroup />
+</Project>
