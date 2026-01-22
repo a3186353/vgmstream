@@ -23,6 +23,9 @@ jobs:
           BREW_PREFIX="$(brew --prefix)"
           echo "brew prefix: ${BREW_PREFIX}"
 
+          echo "mpg123 prefix: $(brew --prefix mpg123)"
+          ls -la "$(brew --prefix mpg123)/lib" || true
+
           pkg-config --version || true
           pkg-config --modversion ogg || true
           pkg-config --modversion vorbis || true
@@ -30,6 +33,7 @@ jobs:
 
           cmake -S external/vgmstream -B build-vgmstream-macos \
             -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_VERBOSE_MAKEFILE=ON \
             -DCMAKE_PREFIX_PATH="${BREW_PREFIX}" \
             -DMPG123_DIR="$(brew --prefix mpg123)" \
             -DMPG123_INCLUDE_DIR="$(brew --prefix mpg123)/include" \
@@ -51,8 +55,32 @@ jobs:
             -DBUILD_SHARED_LIBS=ON
 
       - name: Build
+        continue-on-error: true
+        id: build
         run: |
-          cmake --build build-vgmstream-macos -j$(sysctl -n hw.ncpu)
+          cmake --build build-vgmstream-macos -j$(sysctl -n hw.ncpu) --verbose
+
+      - name: Debug Build
+        if: always()
+        run: |
+          echo "===== CMakeCache (filtered) ====="
+          if [ -f build-vgmstream-macos/CMakeCache.txt ]; then
+            grep -E '^(CMAKE_PREFIX_PATH|CMAKE_LIBRARY_PATH|CMAKE_INCLUDE_PATH|MPG123_|OGG_|VORBIS|VORBISFILE)\b' build-vgmstream-macos/CMakeCache.txt || true
+          fi
+
+          echo "===== link.txt (if exists) ====="
+          if [ -f build-vgmstream-macos/src/CMakeFiles/libvgmstream_shared.dir/link.txt ]; then
+            cat build-vgmstream-macos/src/CMakeFiles/libvgmstream_shared.dir/link.txt
+          fi
+
+          echo "===== library dirs ====="
+          ls -la "$(brew --prefix mpg123)/lib" || true
+          ls -la "$(brew --prefix libogg)/lib" || true
+          ls -la "$(brew --prefix libvorbis)/lib" || true
+
+      - name: Fail If Build Failed
+        if: steps.build.outcome != 'success'
+        run: exit 1
 
       - name: Collect Artifacts
         run: |
