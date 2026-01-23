@@ -64,6 +64,13 @@ jobs:
 
             cmake --build "${BUILD_DIR}"
 
+            echo "NEEDED for ${ABI}:"
+            readelf -d "${BUILD_DIR}/src/libvgmstream.so" | grep NEEDED || true
+            if readelf -d "${BUILD_DIR}/src/libvgmstream.so" | grep -E 'NEEDED.*(libvorbisfile\.so|libvorbis\.so|libogg\.so)'; then
+              echo "ERROR: libvgmstream.so still dynamically depends on ogg/vorbis"
+              exit 1
+            fi
+
             mkdir -p "artifacts/lib/android/${ABI}"
             cp -f "${BUILD_DIR}/src/libvgmstream.so" "artifacts/lib/android/${ABI}/"
           done
