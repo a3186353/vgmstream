@@ -1,12 +1,12 @@
 if(NOT WIN32 AND USE_VORBIS)
-	if(NOT OGG_PATH)
+	if(NOT OGG_PATH AND NOT ANDROID)
 		find_package(Ogg QUIET)
 		
 		if(OGG_FOUND)
 			set(OGG_SOURCE "(system)")
 		endif()
 	endif()
-	if(OGG_PATH OR NOT OGG_FOUND)
+	if(OGG_PATH OR ANDROID OR NOT OGG_FOUND)
 		FetchDependency(OGG
 			DIR ogg
 			GIT_REPOSITORY https://gitlab.xiph.org/xiph/ogg

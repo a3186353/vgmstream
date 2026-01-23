@@ -1,12 +1,12 @@
 if(NOT WIN32 AND USE_VORBIS)
-	if(NOT VORBIS_PATH)
+	if(NOT VORBIS_PATH AND NOT ANDROID)
 		find_package(VorbisFile QUIET)
 		
 		if(VORBISFILE_FOUND)
 			set(VORBIS_SOURCE "(system)")
 		endif()
 	endif()
-	if(VORBIS_PATH AND (OGG_PATH OR OGG_FOUND) OR NOT VORBISFILE_FOUND)
+	if(VORBIS_PATH AND (OGG_PATH OR OGG_FOUND) OR ANDROID OR NOT VORBISFILE_FOUND)
 		FetchDependency(VORBIS
 			DIR vorbis
 			GIT_REPOSITORY https://gitlab.xiph.org/xiph/vorbis
